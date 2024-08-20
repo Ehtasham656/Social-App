@@ -7,15 +7,13 @@ const cookieParser = require("cookie-parser");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const upload = require("./config/multerConfig");
-
 app.set("view engine", "ejs");
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-const JWT_SECRET = process.env.JWT_SECRET || "pakistan656";
-
+const PORT = process.env.PORT || 3000;
 app.get("/", (req, res) => {
   res.render("index");
 });
@@ -23,7 +21,6 @@ app.get("/", (req, res) => {
 app.get("/profile/upload", (req, res) => {
   res.render("profileupload");
 });
-
 app.post("/upload", isLoggedIn, upload.single("image"), async (req, res) => {
   let user = await userModel.findOne({ email: req.user.email });
   user.profilepic = req.file.filename;
@@ -46,16 +43,12 @@ app.post("/register", async (req, res) => {
         email,
         password: hash,
       });
-      let token = jwt.sign({ email: email, userid: user._id }, JWT_SECRET);
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-      });
+      let token = jwt.sign({ email: email, userid: user._id }, "pakistan656");
+      res.cookie("token", token);
       res.send("registered");
     });
   });
 });
-
 app.post("/login", async (req, res) => {
   let { email, password } = req.body;
   let user = await userModel.findOne({ email });
@@ -64,11 +57,8 @@ app.post("/login", async (req, res) => {
   }
   bcrypt.compare(password, user.password).then(function (result) {
     if (result) {
-      let token = jwt.sign({ email: email, userid: user._id }, JWT_SECRET);
-      res.cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-      });
+      let token = jwt.sign({ email: email, userid: user._id }, "pakistan656");
+      res.cookie("token", token);
       return res.redirect("/profile");
     } else {
       res.redirect("/login");
@@ -108,6 +98,7 @@ app.post("/update/:id", isLoggedIn, async (req, res) => {
     { _id: req.params.id },
     { content: req.body.content }
   );
+
   res.redirect("/profile");
 });
 
@@ -123,30 +114,20 @@ app.post("/post", isLoggedIn, async (req, res) => {
 });
 
 app.get("/logout", (req, res) => {
-  res.cookie("token", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-  });
+  res.cookie("token", "");
   res.redirect("/login");
 });
 
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send("Something broke!");
-});
-
 function isLoggedIn(req, res, next) {
-  if (!req.cookies.token) {
+  if (req.cookies.token === "") {
     return res.redirect("/login");
   } else {
-    try {
-      let data = jwt.verify(req.cookies.token, JWT_SECRET);
-      req.user = data;
-      next();
-    } catch (err) {
-      res.redirect("/login");
-    }
+    let data = jwt.verify(req.cookies.token, "pakistan656");
+    req.user = data;
+    next();
   }
 }
 
-module.exports = app;
+app.listen(PORT, () => {
+  console.log("listening on port 3000");
+});
